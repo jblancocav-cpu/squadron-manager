@@ -1441,7 +1441,7 @@ function setupPersonnelForm() {
             const id = document.getElementById('milId').value;
             const existing = id ? state.personnel.find(m => m.id === id) : null;
 
-            let photo = existing ? existing.photo : null;
+            let photo = existing ? (existing.photo || null) : null;
             if (pendingPhoto === '__remove__') photo = null;
             else if (pendingPhoto) photo = pendingPhoto;
 
@@ -1452,25 +1452,25 @@ function setupPersonnelForm() {
             
             const mil = {
                 id:       id || Date.now().toString(),
-                rank:     document.getElementById('milRank').value,
-                warName:  document.getElementById('milWarName').value,
-                fullName: document.getElementById('milFullName').value,
-                section:  document.getElementById('milSection').value,
-                function: document.getElementById('milFunction').value,
-                status:   statusVal,
-                statusReason: isDetailedStatus ? document.getElementById('milStatusReason').value : '',
-                statusStartDate: isDetailedStatus ? (document.getElementById('milStatusStartDate').value || (existing ? existing.statusStartDate : null)) : null,
+                rank:     document.getElementById('milRank').value || '',
+                warName:  document.getElementById('milWarName').value || '',
+                fullName: document.getElementById('milFullName').value || '',
+                section:  document.getElementById('milSection').value || '',
+                function: document.getElementById('milFunction').value || '',
+                status:   statusVal || 'disponivel',
+                statusReason: isDetailedStatus ? (document.getElementById('milStatusReason').value || '') : '',
+                statusStartDate: isDetailedStatus ? (document.getElementById('milStatusStartDate').value || (existing ? (existing.statusStartDate || null) : null)) : null,
                 statusReturnDate: (isDetailedStatus && statusDays && parseInt(statusDays) > 0)
                     ? calcReturnDateFrom(document.getElementById('milStatusStartDate').value, statusDays)
-                    : (isDetailedStatus && existing ? existing.statusReturnDate : null),
-                phone:    document.getElementById('milPhone').value,
-                birthDate:document.getElementById('milBirthDate').value,
-                address:  document.getElementById('milAddress').value,
-                skills:   document.getElementById('milSkills').value,
-                notes:    document.getElementById('milNotes').value,
-                photo,
-                createdBy: existing ? existing.createdBy : (currentUser ? currentUser.uid : 'system'),
-                createdByRole: existing ? existing.createdByRole : (hasPermission('isAdmin') ? 'admin' : 'operator')
+                    : (isDetailedStatus && existing ? (existing.statusReturnDate || null) : null),
+                phone:    document.getElementById('milPhone').value || '',
+                birthDate:document.getElementById('milBirthDate').value || '',
+                address:  document.getElementById('milAddress').value || '',
+                skills:   document.getElementById('milSkills').value || '',
+                notes:    document.getElementById('milNotes').value || '',
+                photo:    photo || null,
+                createdBy: (existing ? existing.createdBy : (currentUser ? currentUser.uid : 'system')) || 'system',
+                createdByRole: (existing ? existing.createdByRole : (hasPermission('isAdmin') ? 'admin' : 'operator')) || 'reader'
             };
 
             if (id) {
