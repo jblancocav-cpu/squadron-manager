@@ -81,11 +81,15 @@ function getLegacyPermissions(role) {
         managePersonnel: true,
         deletePersonnel: true,
         manageRoster: true,
+        viewTasks: true,
         manageTasks: true,
         viewRestricted: false,
         addOccurrences: true
     };
-    return {}; // reader
+    if (role === 'reader') return {
+        viewTasks: true
+    };
+    return {};
 }
 
 let state = {
@@ -150,6 +154,11 @@ auth.onAuthStateChanged(user => {
             // Mostrar itens de admin se for admin
             document.querySelectorAll('.admin-only').forEach(el => {
                 el.style.display = hasPermission('isAdmin') ? 'flex' : 'none';
+            });
+
+            document.querySelectorAll('.tasks-only').forEach(el => {
+                const isNav = el.classList.contains('nav-item');
+                el.style.display = hasPermission('viewTasks') ? (isNav ? 'flex' : 'block') : 'none';
             });
 
             if (_isInitialLoad) {
@@ -293,6 +302,10 @@ function showView(name) {
         showView('dashboard');
         return;
     }
+    if (name === 'tasks' && !hasPermission('viewTasks')) {
+        showView('dashboard');
+        return;
+    }
     VIEWS.forEach(v => document.getElementById(v+'View').classList.remove('active'));
     document.getElementById(name+'View').classList.add('active');
     const titles = {
@@ -312,6 +325,9 @@ function showView(name) {
 
 // === INIT ===
 document.addEventListener('DOMContentLoaded', () => {
+    // Zoom automático de 80% conforme pedido do Cacique
+    document.body.style.zoom = "80%";
+
     lucide.createIcons();
     initTheme();
 
@@ -386,11 +402,22 @@ function initTheme() {
 function setTheme(t) {
     document.body.classList.toggle('theme-dark', t === 'dark');
     document.body.classList.toggle('theme-light', t !== 'dark');
-    document.getElementById('themeIcon').setAttribute('data-lucide', t === 'dark' ? 'sun' : 'moon');
-    document.getElementById('themeText').textContent = t === 'dark' ? 'Modo Claro' : 'Modo Escuro';
+    
+    // Procura o ícone dentro do botão (ID pode sumir quando o Lucide substitui o elemento)
+    const toggleBtn = document.getElementById('themeToggle');
+    if (toggleBtn) {
+        const icon = toggleBtn.querySelector('[data-lucide]');
+        if (icon) icon.setAttribute('data-lucide', t === 'dark' ? 'sun' : 'moon');
+        
+        const text = document.getElementById('themeText');
+        if (text) text.textContent = t === 'dark' ? 'Modo Claro' : 'Modo Escuro';
+    }
+    
     localStorage.setItem('squadron_theme', t);
-    lucide.createIcons();
-    if (document.getElementById('dashboardView').classList.contains('active')) {
+    
+    if (window.lucide) lucide.createIcons();
+    
+    if (document.getElementById('dashboardView')?.classList.contains('active')) {
         updateCharts();
     }
 }
@@ -3506,6 +3533,7 @@ function openPermissionsModal(uid) {
         document.getElementById('perm_managePersonnel').checked = !!perms.managePersonnel;
         document.getElementById('perm_deletePersonnel').checked = !!perms.deletePersonnel;
         document.getElementById('perm_manageRoster').checked = !!perms.manageRoster;
+        document.getElementById('perm_viewTasks').checked = !!perms.viewTasks;
         document.getElementById('perm_manageTasks').checked = !!perms.manageTasks;
         document.getElementById('perm_viewRestricted').checked = !!perms.viewRestricted;
         document.getElementById('perm_addOccurrences').checked = !!perms.addOccurrences;
@@ -3524,6 +3552,7 @@ document.getElementById('permissionsForm').addEventListener('submit', e => {
         managePersonnel: document.getElementById('perm_managePersonnel').checked,
         deletePersonnel: document.getElementById('perm_deletePersonnel').checked,
         manageRoster: document.getElementById('perm_manageRoster').checked,
+        viewTasks: document.getElementById('perm_viewTasks').checked,
         manageTasks: document.getElementById('perm_manageTasks').checked,
         viewRestricted: document.getElementById('perm_viewRestricted').checked,
         addOccurrences: document.getElementById('perm_addOccurrences').checked
