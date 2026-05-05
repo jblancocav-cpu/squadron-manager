@@ -1,0 +1,17 @@
+# Ignorar arquivos de sistema e lixo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Ignorar pastas de ambiente do Antigravity
+antigravity_context/
+.vscode/
+
+# Ignorar arquivos grandes ou temporários
+*.zip
+*.pdf
+*.bat
+extract.py
+parse.py
+importar.json
+Aditamento_ao_BI_Nr_77.txt
