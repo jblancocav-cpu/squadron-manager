@@ -601,10 +601,16 @@ function calcReturnDate(days) {
 }
 
 function calcReturnDateFrom(startDateStr, days) {
-    if (!days || days < 1) return null;
-    const d = startDateStr ? new Date(startDateStr + 'T12:00:00') : new Date();
-    d.setDate(d.getDate() + parseInt(days));
-    return d.toISOString().split('T')[0];
+    try {
+        if (!days || days < 1) return null;
+        const d = startDateStr ? new Date(startDateStr + 'T12:00:00') : new Date();
+        if (isNaN(d.getTime())) return null;
+        d.setDate(d.getDate() + parseInt(days));
+        return d.toISOString().split('T')[0];
+    } catch (e) {
+        console.error("Erro ao calcular data:", e);
+        return null;
+    }
 }
 
 function updateCharts() {
@@ -1392,95 +1398,105 @@ function setupPersonnelForm() {
     });
 
     document.getElementById('btnConfirmStatusChange').addEventListener('click', () => {
-        let id = document.getElementById('scMilId').value;
-        if (!id) {
-            id = document.getElementById('scMilSelect').value;
-        }
-        const newStatus = document.getElementById('scNewStatus').value;
-        const reason = document.getElementById('scReason').value;
-        const days = document.getElementById('scDays').value;
-        const startDate = document.getElementById('scStartDate').value;
-        const m = state.personnel.find(x => x.id === id);
-        if (!m) return;
-        const oldStatus = m.status || 'disponivel';
-        m.status = newStatus;
-        
-        // Se mudar para adido/encostado/reintegrado, sugere mudar de seção também
-        if (['adido', 'encostado', 'reintegrado'].includes(newStatus) && m.section !== "Adidos/Encostados/Reintegrados") {
-            if (confirm(`Deseja mover ${m.rank} ${m.warName} para a seção "Adidos/Encostados/Reintegrados"?`)) {
-                m.section = 'Adidos/Encostados/Reintegrados';
+        try {
+            let id = document.getElementById('scMilId').value;
+            if (!id) {
+                id = document.getElementById('scMilSelect').value;
             }
-        }
+            const newStatus = document.getElementById('scNewStatus').value;
+            const reason = document.getElementById('scReason').value;
+            const days = document.getElementById('scDays').value;
+            const startDate = document.getElementById('scStartDate').value;
+            const m = state.personnel.find(x => x.id === id);
+            if (!m) return;
+            const oldStatus = m.status || 'disponivel';
+            m.status = newStatus;
+            
+            // Se mudar para adido/encostado/reintegrado, sugere mudar de seção também
+            if (['adido', 'encostado', 'reintegrado'].includes(newStatus) && m.section !== "Adidos/Encostados/Reintegrados") {
+                if (confirm(`Deseja mover ${m.rank} ${m.warName} para a seção "Adidos/Encostados/Reintegrados"?`)) {
+                    m.section = 'Adidos/Encostados/Reintegrados';
+                }
+            }
 
-        m.statusReason = reason;
-        m.statusStartDate = startDate || null;
-        m.statusReturnDate = (days && parseInt(days) > 0) ? calcReturnDateFrom(startDate, days) : null;
-        recordStatusHistory(id, oldStatus, newStatus, reason);
-        closeModal('statusChangeModal');
-        saveState();
-        renderDashboard(); renderEscala(); renderPersonnelList();
-        if (currentProfileId && document.getElementById('profileView').classList.contains('active')) {
-            viewProfile(currentProfileId);
+            m.statusReason = reason;
+            m.statusStartDate = startDate || null;
+            m.statusReturnDate = (days && parseInt(days) > 0) ? calcReturnDateFrom(startDate, days) : null;
+            recordStatusHistory(id, oldStatus, newStatus, reason);
+            closeModal('statusChangeModal');
+            saveState();
+            renderDashboard(); renderEscala(); renderPersonnelList();
+            if (currentProfileId && document.getElementById('profileView').classList.contains('active')) {
+                viewProfile(currentProfileId);
+            }
+        } catch (err) {
+            console.error("Erro no Quick Status:", err);
+            alert("Erro ao processar mudança de status: " + err.message);
         }
     });
 
     document.getElementById('personnelForm').addEventListener('submit', e => {
         e.preventDefault();
-        const id = document.getElementById('milId').value;
-        const existing = id ? state.personnel.find(m => m.id === id) : null;
+        try {
+            const id = document.getElementById('milId').value;
+            const existing = id ? state.personnel.find(m => m.id === id) : null;
 
-        let photo = existing ? existing.photo : null;
-        if (pendingPhoto === '__remove__') photo = null;
-        else if (pendingPhoto) photo = pendingPhoto;
+            let photo = existing ? existing.photo : null;
+            if (pendingPhoto === '__remove__') photo = null;
+            else if (pendingPhoto) photo = pendingPhoto;
 
-        const statusVal = document.getElementById('milStatus').value;
-        const statusDays = document.getElementById('milStatusDays').value;
+            const statusVal = document.getElementById('milStatus').value;
+            const statusDays = document.getElementById('milStatusDays').value;
 
-        const isDetailedStatus = (statusVal === 'licenca' || statusVal === 'afastado' || statusVal === 'ferias');
-        
-        const mil = {
-            id:       id || Date.now().toString(),
-            rank:     document.getElementById('milRank').value,
-            warName:  document.getElementById('milWarName').value,
-            fullName: document.getElementById('milFullName').value,
-            section:  document.getElementById('milSection').value,
-            function: document.getElementById('milFunction').value,
-            status:   statusVal,
-            statusReason: isDetailedStatus ? document.getElementById('milStatusReason').value : '',
-            statusStartDate: isDetailedStatus ? (document.getElementById('milStatusStartDate').value || (existing ? existing.statusStartDate : null)) : null,
-            statusReturnDate: (isDetailedStatus && statusDays && parseInt(statusDays) > 0)
-                ? calcReturnDateFrom(document.getElementById('milStatusStartDate').value, statusDays)
-                : (isDetailedStatus && existing ? existing.statusReturnDate : null),
-            phone:    document.getElementById('milPhone').value,
-            birthDate:document.getElementById('milBirthDate').value,
-            address:  document.getElementById('milAddress').value,
-            skills:   document.getElementById('milSkills').value,
-            notes:    document.getElementById('milNotes').value,
-            photo,
-            createdBy: existing ? existing.createdBy : (currentUser ? currentUser.uid : 'system'),
-            createdByRole: existing ? existing.createdByRole : (hasPermission('isAdmin') ? 'admin' : 'operator')
-        };
+            const isDetailedStatus = (statusVal === 'licenca' || statusVal === 'afastado' || statusVal === 'ferias');
+            
+            const mil = {
+                id:       id || Date.now().toString(),
+                rank:     document.getElementById('milRank').value,
+                warName:  document.getElementById('milWarName').value,
+                fullName: document.getElementById('milFullName').value,
+                section:  document.getElementById('milSection').value,
+                function: document.getElementById('milFunction').value,
+                status:   statusVal,
+                statusReason: isDetailedStatus ? document.getElementById('milStatusReason').value : '',
+                statusStartDate: isDetailedStatus ? (document.getElementById('milStatusStartDate').value || (existing ? existing.statusStartDate : null)) : null,
+                statusReturnDate: (isDetailedStatus && statusDays && parseInt(statusDays) > 0)
+                    ? calcReturnDateFrom(document.getElementById('milStatusStartDate').value, statusDays)
+                    : (isDetailedStatus && existing ? existing.statusReturnDate : null),
+                phone:    document.getElementById('milPhone').value,
+                birthDate:document.getElementById('milBirthDate').value,
+                address:  document.getElementById('milAddress').value,
+                skills:   document.getElementById('milSkills').value,
+                notes:    document.getElementById('milNotes').value,
+                photo,
+                createdBy: existing ? existing.createdBy : (currentUser ? currentUser.uid : 'system'),
+                createdByRole: existing ? existing.createdByRole : (hasPermission('isAdmin') ? 'admin' : 'operator')
+            };
 
-        if (id) {
-            const idx = state.personnel.findIndex(m => m.id === id);
-            if (idx !== -1) {
-                const oldStatus = state.personnel[idx].status || 'disponivel';
-                if (oldStatus !== mil.status) {
-                    recordStatusHistory(id, oldStatus, mil.status, mil.statusReason);
+            if (id) {
+                const idx = state.personnel.findIndex(m => m.id === id);
+                if (idx !== -1) {
+                    const oldStatus = state.personnel[idx].status || 'disponivel';
+                    if (oldStatus !== mil.status) {
+                        recordStatusHistory(id, oldStatus, mil.status, mil.statusReason);
+                    }
+                    state.personnel[idx] = mil;
                 }
-                state.personnel[idx] = mil;
+            } else {
+                state.personnel.push(mil);
+                recordStatusHistory(mil.id, 'novo', mil.status, 'Inclusão inicial');
             }
-        } else {
-            state.personnel.push(mil);
-            recordStatusHistory(mil.id, 'novo', mil.status, 'Inclusão inicial');
-        }
-        closeModal('personnelModal');
-        saveState();
-        renderPersonnelList();
-        renderDashboard();
-        renderEscala();
-        if (currentProfileId && document.getElementById('profileView').classList.contains('active')) {
-            viewProfile(currentProfileId);
+            closeModal('personnelModal');
+            saveState();
+            renderPersonnelList();
+            renderDashboard();
+            renderEscala();
+            if (currentProfileId && document.getElementById('profileView').classList.contains('active')) {
+                viewProfile(currentProfileId);
+            }
+        } catch (err) {
+            console.error("Erro ao salvar militar:", err);
+            alert("Erro ao salvar informações do militar: " + err.message);
         }
     });
 }
