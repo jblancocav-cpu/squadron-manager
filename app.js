@@ -182,11 +182,22 @@ auth.onAuthStateChanged(user => {
     }
 });
 
+let dbListenerActive = false;
+
 function initAppSync() {
+    if (dbListenerActive) {
+        console.log("Listener do Firebase já está ativo. Pulando nova inicialização.");
+        return;
+    }
+    
+    console.log("Iniciando sincronização com Firebase...");
+    dbListenerActive = true;
+
     dbRef.on('value', (snapshot) => {
         const data = snapshot.val();
         
         if (data) {
+            console.log("Dados recebidos do Firebase.");
             state.personnel = data.personnel || [];
             state.tasks = data.tasks || [];
             state.occurrences = data.occurrences || [];
@@ -200,7 +211,10 @@ function initAppSync() {
             if (!_isSaving) {
                 const activeView = document.querySelector('.view.active') || { id: 'dashboardView' };
                 const id = activeView.id.replace('View', '');
+                console.log("Renderizando view após atualização remota:", id);
                 showView(id);
+            } else {
+                console.log("Ignorando renderização: salvamento local em curso.");
             }
         }
         _isInitialLoad = false;
@@ -272,7 +286,10 @@ document.getElementById('btnLogout').onclick = () => {
 
 function saveState() {
     // Se não tiver nenhuma permissão, é um leitor puro, não salva estado global
-    if (!hasPermission('isAdmin') && !Object.values(userPermissions).some(v => v)) return;
+    if (!hasPermission('isAdmin') && !Object.values(userPermissions).some(v => v)) {
+        console.warn("Sem permissão para salvar no Firebase.");
+        return;
+    }
 
     // Nuvem
     _isSaving = true;
@@ -287,9 +304,11 @@ function saveState() {
         serviceRosters: state.serviceRosters
     }).then(() => {
         _isSaving = false;
+        console.log("Estado salvo com sucesso no Firebase.");
     }).catch(err => {
         console.error("Erro no Firebase:", err);
         _isSaving = false;
+        alert("ERRO AO SALVAR NA NUVEM: " + err.message + "\nSuas alterações podem ser perdidas ao atualizar.");
     });
 }
 
@@ -1417,6 +1436,8 @@ function setupPersonnelForm() {
         const statusVal = document.getElementById('milStatus').value;
         const statusDays = document.getElementById('milStatusDays').value;
 
+        const isDetailedStatus = (statusVal === 'licenca' || statusVal === 'afastado' || statusVal === 'ferias');
+        
         const mil = {
             id:       id || Date.now().toString(),
             rank:     document.getElementById('milRank').value,
@@ -1425,11 +1446,11 @@ function setupPersonnelForm() {
             section:  document.getElementById('milSection').value,
             function: document.getElementById('milFunction').value,
             status:   statusVal,
-            statusReason: document.getElementById('milStatusReason').value,
-            statusStartDate: document.getElementById('milStatusStartDate').value || (existing ? existing.statusStartDate : null),
-            statusReturnDate: (statusDays && parseInt(statusDays) > 0)
+            statusReason: isDetailedStatus ? document.getElementById('milStatusReason').value : '',
+            statusStartDate: isDetailedStatus ? (document.getElementById('milStatusStartDate').value || (existing ? existing.statusStartDate : null)) : null,
+            statusReturnDate: (isDetailedStatus && statusDays && parseInt(statusDays) > 0)
                 ? calcReturnDateFrom(document.getElementById('milStatusStartDate').value, statusDays)
-                : (existing ? existing.statusReturnDate : null),
+                : (isDetailedStatus && existing ? existing.statusReturnDate : null),
             phone:    document.getElementById('milPhone').value,
             birthDate:document.getElementById('milBirthDate').value,
             address:  document.getElementById('milAddress').value,
